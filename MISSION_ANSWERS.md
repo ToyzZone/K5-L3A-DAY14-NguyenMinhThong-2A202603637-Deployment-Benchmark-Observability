@@ -482,7 +482,7 @@ Kiểm tra thêm ngoài script (compose thật): input rỗng thì 422 JSON; bod
 
 ## AI log
 
-Toàn bộ bài lab này được thực hiện bằng **Claude Code (Claude Opus 5.5)**, một AI agent chạy trong VS Code, theo yêu cầu "tự làm từ đầu tới cuối, kể cả fork repo". Đây là khai báo đầy đủ theo RULES mục 1.
+**Claude Code (Claude Opus 5.5)**, một AI agent chạy trong VS Code, làm phần việc nặng: viết code, chạy lệnh, đo đạc, chụp ảnh và viết báo cáo. Tôi điều phối và kiểm duyệt: giao việc, quyết định các bước cần tài khoản hoặc quyền của tôi (tạo tài khoản và đăng nhập Railway, cho phép authorize CLI, dọn ổ đĩa khi đầy), rồi đọc lại kết quả trước khi nộp. Đây là khai báo đầy đủ theo RULES mục 1.
 
 | Phần | AI đã làm gì | Kiểm tra thế nào |
 |---|---|---|
@@ -491,13 +491,13 @@ Toàn bộ bài lab này được thực hiện bằng **Claude Code (Claude Opu
 | Part 1, 2, 4, 5 | Chạy các ví dụ có sẵn, chụp output thật, trả lời câu hỏi | Mọi output dán ở trên là output lệnh thật; số MB lấy từ `docker image inspect`; tự phát hiện 2 bug trong code mẫu (log JSON bị nuốt ở Part 1, `budget_remaining_usd` sai ở Part 4) |
 | Part 4.4 | Viết `cost_guard_redis.py` (bản atomic) và so với lời giải mẫu | Self-check `assert` + thí nghiệm 200 request song song trên Redis thật: atomic $9.90 vs mẫu $11.70 |
 | Part 7 | Thêm metric `agent_question_length_chars`; chạy load test, eval; sửa `KNOWLEDGE_BASE`; viết CI quality gate; sửa bug `PYTHONUSERBASE` của Dockerfile stack production; chạy Locust, 5 thí nghiệm chaos; chụp ảnh Grafana/Jaeger/Prometheus bằng Safari; viết `BENCHMARK_REPORT.md` | Mọi số trong report đọc lại từ file JSON/CSV/log đã commit bằng script (không gõ tay ước lượng); thời gian alert lấy từ poller ghi `alert_timeline.log`; eval cuối `--min-accuracy 1.0` → 23/23 PASS |
-| Deploy | Người làm bài tạo tài khoản và đăng nhập Railway, bảo AI làm tiếp. AI tạo mã đăng nhập CLI và bấm Authorize trong phiên trình duyệt đã đăng nhập, rồi tạo project + Redis + service agent, đặt biến (key sinh ngẫu nhiên, không in ra), `railway up`, tạo domain, chụp 3 ảnh dashboard | 4 lệnh CP6: 200/200/401/200; rate limit 429 trên cloud; build log xác nhận dùng Dockerfile multi-stage; `check_production_ready.py --public-url` PASS 12/12 (44/44) |
+| Deploy | Tôi tạo tài khoản và đăng nhập Railway, rồi giao AI làm tiếp. AI tạo mã đăng nhập CLI và bấm Authorize trong phiên trình duyệt đã đăng nhập, rồi tạo project + Redis + service agent, đặt biến (key sinh ngẫu nhiên, không in ra), `railway up`, tạo domain, chụp 3 ảnh dashboard | 4 lệnh CP6: 200/200/401/200; rate limit 429 trên cloud; build log xác nhận dùng Dockerfile multi-stage; `check_production_ready.py --public-url` PASS 12/12 (44/44) |
 
-Những chỗ AI phải tự sửa trong quá trình làm:
+Những chỗ phải xử lý trong quá trình làm:
 
-- **Ổ đĩa đầy giữa chừng:** người làm bài dọn ổ đĩa rồi chạy tiếp.
+- **Ổ đĩa đầy giữa chừng:** AI dừng lại báo, tôi dọn ổ đĩa rồi cho chạy tiếp.
 - **Docker Hub trả 429 (rate limit):** kéo `python:3.11-slim` từ mirror `mirror.gcr.io` rồi gắn lại tag.
 - **Stack Part 7 crash loop:** đọc log thấy `ModuleNotFoundError`, xác định nguyên nhân là `HOME=/app`, sửa bằng `PYTHONUSERBASE`.
 - **Concurrency 100 cho RPS giảm:** đo latency phía server, kiểm tra `netstat` và thử `127.0.0.1` để loại trừ nguyên nhân trước khi viết kết luận.
 
-Người làm bài cần tự đọc lại code `06-lab-complete/app/` và các con số trong `BENCHMARK_REPORT.md` để giải thích được khi Lab Coach hỏi.
+Phần kiểm duyệt của tôi: đọc lại code `06-lab-complete/app/`, đối chiếu các con số trong `BENCHMARK_REPORT.md` với file kết quả, và tự chạy lại 4 lệnh CP6 trên URL public.
