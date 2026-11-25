@@ -117,7 +117,7 @@ Locust chạy nền 30 user suốt thí nghiệm. Thời gian lấy từ `alert_
 | B | `MOCK_SLOW_RATE=0.3` (giữ A) | `AgentHighLatencyP95` (value 1.89 s) | T0 09:50:54 → pending 09:51:17 → firing **09:53:19 ≈ 145 s** (`for: 2m`) | Latency p95 (1.89 s, đỏ); đồ thị p50/p95/p99/avg: p95, p99 sát 1.9 s, avg chỉ ≈ 0.55 s (đọc trên đồ thị `grafana-chaos-AB.png`); LLM latency p95 |
 | C | `LLM_MODEL=mock-llm-large` | `LLMCostBurnRateHigh` | T0 09:54:23 → pending 09:54:42 → firing **09:56:45 ≈ 142 s** (`for: 2m`) | Cost burn rate: **$34.3/giờ** vs ~$2.3/giờ với model small (≈ 15×); LLM latency p95 0.50 s. p95 /ask 743 ms < 1 s nên alert latency không bật |
 | D | `docker pause` agent-1 | `AgentInstanceDown` (172.19.0.4:8000) | T0 09:57:33 → pending 09:57:47 → firing **09:58:20 ≈ 47 s** (`for: 30s`) | Instances up 2 → 1. Nginx trả **28 lỗi 504** trong lúc pause, nhưng error rate phía agent chỉ 1.7% (xanh) |
-| E | `AGENT_VERSION=v1` | **Không có** (`alerts now: none` lúc 10:04:23) | — | Retrieval hit ratio: 100% → **No data** sau 5 phút; Tokens/s input 1355 → 686, output 720 → 373; cost $2.29 → $1.18/giờ; bảng "Phiên bản đang chạy" đổi sang v1 (`grafana-exp-E-v1.png`) |
+| E | `AGENT_VERSION=v1` | **Không có alert mới** (`alerts now: none` lúc 10:04:23). Ngược lại, `LLMCostBurnRateHigh` đang firing từ C còn **tắt** lúc 10:02:00 vì cost giảm | — | Retrieval hit ratio: 100% → **No data** sau 5 phút; Tokens/s input 1355 → 686, output 720 → 373; cost $2.29 → $1.18/giờ; bảng "Phiên bản đang chạy" đổi sang v1 (`grafana-exp-E-v1.png`) |
 
 Các quan sát khác:
 
@@ -143,7 +143,7 @@ Các quan sát khác:
 
 ### 4.4 Debug bằng trace
 
-Trace chậm nhất, span dài nhất là `chat mock-llm-small` (`screenshots/jaeger-slow-trace.png`; số liệu span lấy từ Jaeger API, lưu ở `evidence/p7_traces.txt`):
+Trace chậm được chọn (2281.5 ms, chỉ sau trace `d6cacb36…` 2288.9 ms phân tích bên dưới), span dài nhất là `chat mock-llm-small` (`screenshots/jaeger-slow-trace.png`; số liệu span lấy từ Jaeger API, lưu ở `evidence/p7_traces.txt`):
 
 - `trace_id`: `b7c1cc8b52e44403cb67e29791585be4`
 - Tổng thời gian: **2281.5 ms** (`POST /ask`)
