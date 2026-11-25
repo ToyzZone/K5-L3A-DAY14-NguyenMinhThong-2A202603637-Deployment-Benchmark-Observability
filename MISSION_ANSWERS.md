@@ -500,4 +500,4 @@ Những chỗ phải xử lý trong quá trình làm:
 - **Stack Part 7 crash loop:** đọc log thấy `ModuleNotFoundError`, xác định nguyên nhân là `HOME=/app`, sửa bằng `PYTHONUSERBASE`.
 - **Concurrency 100 cho RPS giảm:** đo latency phía server, kiểm tra `netstat` và thử `127.0.0.1` để loại trừ nguyên nhân trước khi viết kết luận.
 
-Phần kiểm duyệt của tôi: đọc lại code `06-lab-complete/app/`, đối chiếu các con số trong `BENCHMARK_REPORT.md` với file kết quả, và tự chạy lại 4 lệnh CP6 trên URL public.
+Phần kiểm duyệt của tôi: đọc lại code `06-lab-complete/app/`, đối chiếu các con số trong `BENCHMARK_REPORT.md` với file kết quả, và xem lại kết quả 4 lệnh CP6 chạy lại trên URL public lúc 2026-11-25 10:48 UTC (200 / 200 / 401 / 200).
