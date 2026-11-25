@@ -1,0 +1,25 @@
+T0_A 09:49:16 (agents recreated with MOCK_ERROR_RATE=0.2)
+T0_B 09:50:54 (agents recreated with MOCK_SLOW_RATE=0.3, MOCK_ERROR_RATE=0.2 kept)
+T0_C 09:54:23 (A,B reverted; LLM_MODEL=mock-llm-large)
+09:56:49 sum(rate(llm_cost_usd_total{job="agent"}[1m]))*3600 [({}, 34.347)]
+09:56:49 histogram_quantile(0.95, sum by (le) (rate(http_request_dura [({}, 0.743)]
+09:56:49 histogram_quantile(0.95, sum by (le,model) (rate(llm_request [({'model': 'mock-llm-large'}, 0.497)]
+09:57:03 C reverted (all defaults)
+T0_D 09:57:33 docker pause k5-day14-observability-agent-1
+nginx 504 during pause: 28
+09:58:44 sum(rate(http_requests_total{job="agent",route="/a [0.017]
+09:58:44 sum(up{job="agent"}) [1.0]
+09:58:52 unpaused agent-1
+09:59:00 before_E sum(rate(agent_retrieval_total{job="agent", r [({}, 1.0)]
+09:59:00 before_E sum by (type) (rate(llm_tokens_total{job="age [({'type': 'input'}, 1355.402), ({'type': 'output'}, 720.5)]
+09:59:00 before_E sum(rate(llm_cost_usd_total{job="agent"}[1m]) [({}, 2.289)]
+09:59:00 before_E max by (version) (agent_info) [({'version': 'v2'}, 1.0)]
+T0_E 09:59:01 AGENT_VERSION=v1
+10:01:31 after_E sum(rate(agent_retrieval_total{job="agent", r [({}, 1.0)]
+10:01:31 after_E sum by (type) (rate(llm_tokens_total{job="age [({'type': 'input'}, 685.66), ({'type': 'output'}, 372.702)]
+10:01:31 after_E sum(rate(llm_cost_usd_total{job="agent"}[1m]) [({}, 1.175)]
+10:01:31 after_E max by (version) (agent_info) [({'version': 'v1'}, 1.0)]
+alerts now: [('LLMCostBurnRateHigh', 'firing')]
+10:04:23 after_E_5m sum(rate(agent_retrieval_total{job="agent", result="hit"}[5m NO DATA
+10:04:23 after_E_5m sum(rate(agent_retrieval_total{job="agent"}[5m])) NO DATA
+alerts now: none
