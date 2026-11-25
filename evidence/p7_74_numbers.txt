@@ -1,0 +1,11 @@
+time (UTC): 09:47:11
+p95 /ask (1m)                                       0.4950
+p99 /ask (1m)                                       1.8661
+avg /ask (1m)                                       0.2573
+p95 /ask (5m)                                       0.2997
+avg /ask (5m)                                       0.2428
+req/s by instance      instance=172.19.0.4:8000     9.0550
+req/s by instance      instance=172.19.0.8:8000     8.9638
+tokens/s by type       type=input                   1407.9968
+tokens/s by type       type=output                  748.9547
+error rate (1m)                                     0.0071

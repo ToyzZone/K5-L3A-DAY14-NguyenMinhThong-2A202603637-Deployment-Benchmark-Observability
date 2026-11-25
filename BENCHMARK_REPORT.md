@@ -100,7 +100,7 @@ Trước khi thêm, tôi đã kiểm tra không có câu hỏi nào khác trong 
 
 ### 4.2 Exercise 7.4: đọc dashboard (Locust 30 user, 2 instance)
 
-Số từ Prometheus API lúc 09:47:11 UTC (cùng PromQL với panel); ảnh Grafana chụp ngay trước đó hiển thị p95 = 359 ms, error 0.79%, 18.5 req/s.
+Số từ Prometheus API lúc 09:47:11 UTC (cùng PromQL với panel; output lưu ở `evidence/p7_74_numbers.txt`); ảnh Grafana chụp ngay trước đó hiển thị p95 = 359 ms, error 0.79%, 18.5 req/s.
 
 1. **p95 vs avg:** p95 (1m) = 495 ms, avg (1m) = 257 ms, p99 (1m) = 1866 ms. Trên cửa sổ 5m: p95 300 ms, avg 243 ms. p95/p99 cách xa avg vì ~3% request chậm (+1.5 s): đó là tail latency. avg bị kéo nhẹ, còn p99 thì phản ánh thẳng nhóm chậm. p95 ở cửa sổ 1m dao động mạnh (359 → 495 ms trong vài giây) vì nó nằm sát biên nhóm chậm 3%.
 2. **Requests/s theo instance:** 172.19.0.4 = 9.06 req/s, 172.19.0.8 = 8.96 req/s, nên Nginx chia **đều** (round-robin).
@@ -121,7 +121,13 @@ Locust chạy nền 30 user suốt thí nghiệm. Thời gian lấy từ `alert_
 
 Các quan sát khác:
 
-- **Alert chi phí đặt quá thấp cho tải thật.** Với model small, 30 user đã tốn ~$2.3–2.4/giờ, vượt ngưỡng $2/giờ, nên `LLMCostBurnRateHigh` **đã firing từ trước thí nghiệm C**: điều kiện đúng (`activeAt`, bắt đầu pending) từ 09:41:17 khi chạy Locust 100 user, và lần poll đầu tiên lúc 09:49:04 đã thấy nó ở trạng thái firing (`alert_timeline.log`). Alert bật cả khi hệ thống bình thường thì thành nhiễu và người ta sẽ tắt nó. Nên đặt ngưỡng theo budget thực tế, hoặc theo **cost / request**, hoặc so với baseline (vd > 3× trung bình 1 ngày), thay vì một con số tuyệt đối.
+- **Alert chi phí đặt quá thấp cho tải thật.** Với model small, 30 user đã tốn ~$2.3–2.4/giờ, vượt ngưỡng $2/giờ, nên `LLMCostBurnRateHigh` **firing ngay cả ở tải nền, chưa cần thí nghiệm C**. Theo `alert_timeline.log`:
+  - Điều kiện đúng (`activeAt`) từ 09:41:17 khi chạy Locust 100 user; lần poll đầu tiên lúc 09:49:04 đã thấy firing.
+  - Tắt lúc 09:49:34 khi tạo lại container ở thí nghiệm A (counter reset).
+  - Pending lại lúc 09:49:44, rồi về inactive lúc 09:51:34 vì thí nghiệm A/B làm giảm số request thành công.
+  - Trước khi bắt đầu C nó đang inactive, nên 142 s ở bảng trên là một lần inactive → firing thật.
+
+  Alert bật cả khi hệ thống bình thường thì thành nhiễu và người ta sẽ tắt nó. Nên đặt ngưỡng theo budget thực tế, hoặc theo **cost / request**, hoặc so với baseline (vd > 3× trung bình 1 ngày), thay vì một con số tuyệt đối.
 - **Vì sao `for` quan trọng:** mỗi lần tạo lại container, target cũ (IP cũ) bị scrape lỗi vài giây trước khi DNS SD (`refresh_interval: 10s`) xoá nó. `AgentInstanceDown` lên `pending` rồi tự về `inactive` sau 5 s, **không firing** nhờ `for: 30s`. Nếu `for: 0s` thì mỗi lần deploy là một lần báo động giả.
 - **Vì sao 504 không hiện trên metric agent (D):** request bị kẹt ở container đang pause. Nginx chờ hết `proxy_read_timeout 10s` rồi trả 504. Agent chưa bao giờ xử lý xong request đó nên không đếm. Metric chỉ phản ánh những gì *chính service đó* thấy, nên production cần thêm metric ở load balancer (status code của Nginx) hoặc synthetic check từ bên ngoài.
 - **Vì sao `pause` mà không `stop`:** container bị stop biến mất khỏi Docker DNS, Prometheus coi như target không tồn tại (không phải "down"). Pause thì vẫn còn trong DNS nhưng không trả lời, nên `up == 0`.
@@ -137,7 +143,7 @@ Các quan sát khác:
 
 ### 4.4 Debug bằng trace
 
-Trace chậm nhất có span LLM chậm (`screenshots/jaeger-slow-trace.png`):
+Trace chậm nhất, span dài nhất là `chat mock-llm-small` (`screenshots/jaeger-slow-trace.png`; số liệu span lấy từ Jaeger API, lưu ở `evidence/p7_traces.txt`):
 
 - `trace_id`: `b7c1cc8b52e44403cb67e29791585be4`
 - Tổng thời gian: **2281.5 ms** (`POST /ask`)
@@ -154,7 +160,7 @@ Trace chậm nhất có span LLM chậm (`screenshots/jaeger-slow-trace.png`):
 - Trace nói span chậm nhất là `chat mock-llm-small`, tức "LLM chậm".
 - Nhưng log của **cùng request** ghi `llm_ms: 193.6`. Trong `app/main.py`, `llm_ms = result.latency_s`, là thời gian mock *yêu cầu* ngủ, **đã gồm** phần +1500 ms của nhóm `MOCK_SLOW_RATE`. Vậy request này **không** thuộc nhóm slow: mock chỉ xin ngủ 194 ms, còn `asyncio.sleep` được "đánh thức" muộn ~2 s. Một request slow-rate thật chỉ tới ~1.7–1.75 s (bảng 2.2), còn trace này là 2.28 s.
 - Trace thứ hai cùng instance `7f4fe843982c`, cách 2 s: `d6cacb36fc10ceee577ce6b9c89a7bcf` dài 2288.9 ms, nhưng `agent.run` chỉ 224 ms và middleware app log `"ms": 234.5`. Ở trace này ~2 s nằm **ngoài** code agent.
-- Hai trace rơi vào 09:42:53–56, ~20 s sau khi Locust 100 user bắt đầu ramp lúc chạy scale_3, trên container vừa được tạo, mỗi container giới hạn `cpus: 0.5`.
+- Hai trace rơi vào 09:42:53–56, ~20 s sau khi Locust 100 user bắt đầu ramp lúc chạy scale_3, trên agent-1 (`7f4fe843982c`, container đã chạy từ lần scale_1; 2 instance còn lại vừa được thêm khi scale lên 3). Mỗi container giới hạn `cpus: 0.5`.
 - **Kết luận (giả thuyết, chưa kiểm chứng bằng metric CPU):** event loop của instance bị nghẽn khoảng 2 s (CPU throttle khi tải dồn lên container 0.5 CPU), nên coroutine nào đang `await` lúc đó cũng bị trễ. Trace chỉ ra *span nào* bị kéo dài, còn log `llm_ms` cho biết *upstream không chậm*.
 - Bài học: span `chat` dài **không** đồng nghĩa với LLM chậm. Cần thêm metric saturation (event-loop lag, CPU throttling của container) để phân biệt.
 

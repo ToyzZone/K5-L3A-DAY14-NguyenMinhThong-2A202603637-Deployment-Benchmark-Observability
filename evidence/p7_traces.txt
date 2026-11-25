@@ -1,0 +1,19 @@
+traces with duration >= 1.5s: 492
+SLOW trace_id= d6cacb36fc10ceee577ce6b9c89a7bcf total=2288.9ms instance= 7f4fe843982c
+    POST /ask                2288.9 ms  100.0% status= 
+    agent.run                 224.1 ms    9.8% status= 
+    chat mock-llm-small       203.7 ms    8.9% status= 
+    agent.retrieve_context     19.9 ms    0.9% status= 
+SLOW trace_id= b7c1cc8b52e44403cb67e29791585be4 total=2281.5ms instance= 7f4fe843982c
+    POST /ask                2281.5 ms  100.0% status= 
+    agent.run                2258.1 ms   99.0% status= 
+    chat mock-llm-small      2241.5 ms   98.2% status= 
+    agent.retrieve_context     16.3 ms    0.7% status= 
+error traces: 172
+ERR trace_id= dc81836bad2dd3ad91760e445aaac80c total=126.6ms instance= 25d404e2e4e4
+    POST /ask                 126.6 ms  100.0% status= 2
+    agent.run                 124.1 ms   98.0% status= 2
+       event: exception [('exception.escaped', 'False'), ('exception.message', 'Upstream LLM error: 503 Service Unavailable (mock)'), ('exception.stacktrace', 'Traceback (most recent call last):\n  File "/home/agent/.local/lib/python3.11/site-packages/opentelemetry/trace'), ('exception.type', 'utils.mock_llm.LLMError')]
+    chat mock-llm-small        95.7 ms   75.6% status= 2
+       event: exception [('exception.escaped', 'False'), ('exception.message', 'Upstream LLM error: 503 Service Unavailable (mock)'), ('exception.stacktrace', 'Traceback (most recent call last):\n  File "/app/app/main.py", line 153, in run_agent\n    result = await mock_l'), ('exception.type', 'utils.mock_llm.LLMError')]
+    agent.retrieve_context     27.4 ms   21.6% status= 
