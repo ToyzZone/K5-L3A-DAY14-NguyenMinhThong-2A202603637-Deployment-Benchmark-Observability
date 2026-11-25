@@ -166,9 +166,34 @@ Các service giao tiếp qua DNS nội bộ của network `internal` (tên servi
 
 ### Exercise 3.1: Deploy agent Part 6 lên Railway
 
-> Xem `DEPLOYMENT.md` để có URL, lệnh test và ảnh chụp.
+> Chi tiết, log và ảnh chụp: `DEPLOYMENT.md`, `screenshots/dashboard.png`, `running.png`, `test.png`.
 
-- URL: **(điền sau khi deploy — xem DEPLOYMENT.md)**
+- URL: **https://agent-production-ac611854.up.railway.app**
+- Cách làm (deploy luôn agent Part 6, không deploy app mẫu):
+
+  ```bash
+  cd 06-lab-complete
+  railway init --name day14-agent            # tạo project + link thư mục
+  railway add --database redis               # service Redis
+  railway add --service agent                # service cho agent
+  railway variable set AGENT_API_KEY --stdin --service agent --skip-deploys < key.txt   # key ngẫu nhiên, không in ra
+  railway variable set 'REDIS_URL=${{Redis.REDIS_URL}}' --service agent --skip-deploys
+  railway variable set ENVIRONMENT=production RATE_LIMIT_PER_MINUTE=10 DAILY_BUDGET_USD=1.0 ...
+  railway up --service agent --ci            # build bằng Dockerfile multi-stage (railway.toml: builder = DOCKERFILE)
+  railway domain --service agent             # → agent-production-ac611854.up.railway.app
+  ```
+
+- 4 lệnh tự kiểm ở CP6 (chỉ in mã HTTP):
+
+  ```text
+  $BASE/health                      → 200
+  $BASE/ready                       → 200   ({"status":"ready","redis":"ok"})
+  POST $BASE/ask (không key)        → 401
+  POST $BASE/ask (X-API-Key đúng)   → 200
+  ```
+
+- Rate limit trên cloud: `200 ×8 → 429 ×4` (cộng 2 request trước đó = 10/phút), header `retry-after: 39`.
+- `check_production_ready.py --public-url …` → `✅ Public URL: GET …/health → 200`, **PASS 12/12 (44/44 checks)**.
 
 ### Exercise 3.2: So sánh `railway.toml` và `render.yaml`
 
@@ -406,9 +431,18 @@ $ curl http://localhost:8080/chat/$SID/history → count = 14
 
 ## Part 6: Final Project — output `check_production_ready.py`
 
-Chạy đầy đủ (có Docker) trong `06-lab-complete/`:
+Chạy đầy đủ (có Docker) trên code cuối cùng trong `06-lab-complete/`, kèm kiểm tra URL public: `python check_production_ready.py --public-url https://agent-production-ac611854.up.railway.app`
 
 ```text
+✅ 12. Public URL ready (Railway / Render config)
+     ✅ Có railway.toml hoặc render.yaml (không chỉ toàn comment)
+     ✅ railway.toml: builder + healthcheckPath = "/health"
+     ✅ render.yaml: web service + healthCheckPath /health
+     ✅ render.yaml: secret không ghi thẳng giá trị (generateValue / sync: false)
+     ✅ App lắng nghe theo biến PORT do platform cấp
+     ✅ Public URL: GET https://agent-production-ac611854.up.railway.app/health → 200
+
+================================================================
   📋 Checklist Deliverable
      ✅ Dockerfile (multi-stage, < 500 MB)
      ✅ docker-compose.yml (agent + redis)
@@ -423,7 +457,7 @@ Chạy đầy đủ (có Docker) trong `06-lab-complete/`:
      ✅ Graceful shutdown
      ✅ Public URL ready (Railway / Render config)
 ----------------------------------------------------------------
-  Result: 12/12 tiêu chí đạt · 43/43 checks passed
+  Result: 12/12 tiêu chí đạt · 44/44 checks passed
   🎉 PASS 12/12 — PRODUCTION READY! Deploy nào!
 ================================================================
 ```
@@ -457,7 +491,7 @@ Toàn bộ bài lab này được thực hiện bằng **Claude Code (Claude Opu
 | Part 1, 2, 4, 5 | Chạy các ví dụ có sẵn, chụp output thật, trả lời câu hỏi | Mọi output dán ở trên là output lệnh thật; số MB lấy từ `docker image inspect`; tự phát hiện 2 bug trong code mẫu (log JSON bị nuốt ở Part 1, `budget_remaining_usd` sai ở Part 4) |
 | Part 4.4 | Viết `cost_guard_redis.py` (bản atomic) và so với lời giải mẫu | Self-check `assert` + thí nghiệm 200 request song song trên Redis thật: atomic $9.90 vs mẫu $11.70 |
 | Part 7 | Thêm metric `agent_question_length_chars`; chạy load test, eval; sửa `KNOWLEDGE_BASE`; viết CI quality gate; sửa bug `PYTHONUSERBASE` của Dockerfile stack production; chạy Locust, 5 thí nghiệm chaos; chụp ảnh Grafana/Jaeger/Prometheus bằng Safari; viết `BENCHMARK_REPORT.md` | Mọi số trong report đọc lại từ file JSON/CSV/log đã commit bằng script (không gõ tay ước lượng); thời gian alert lấy từ poller ghi `alert_timeline.log`; eval cuối `--min-accuracy 1.0` → 23/23 PASS |
-| Deploy | **Đang chờ** (cần người làm bài đăng nhập Railway). Đã cài Railway CLI, viết sẵn `railway.toml` / `render.yaml` | Sẽ kiểm bằng 4 lệnh tự kiểm ở CP6 sau khi deploy |
+| Deploy | Người làm bài tạo tài khoản và đăng nhập Railway, bảo AI làm tiếp. AI tạo mã đăng nhập CLI và bấm Authorize trong phiên trình duyệt đã đăng nhập, rồi tạo project + Redis + service agent, đặt biến (key sinh ngẫu nhiên, không in ra), `railway up`, tạo domain, chụp 3 ảnh dashboard | 4 lệnh CP6: 200/200/401/200; rate limit 429 trên cloud; build log xác nhận dùng Dockerfile multi-stage; `check_production_ready.py --public-url` PASS 12/12 (44/44) |
 
 Những chỗ AI phải tự sửa trong quá trình làm:
 
