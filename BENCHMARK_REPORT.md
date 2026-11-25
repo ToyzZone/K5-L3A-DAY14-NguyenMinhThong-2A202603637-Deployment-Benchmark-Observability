@@ -40,7 +40,7 @@ Nguồn số liệu (đều có trong repo):
 **Nhận xét:** RPS **không** tăng tuyến tính.
 
 - **1 → 50:** gần tuyến tính (4.3 → 35.8 → 102.4 req/s). Theo Little's law `RPS ≈ concurrency / latency`: latency gần như không đổi (~0.2 s) vì agent là async (`asyncio.sleep` mô phỏng chờ LLM), một process phục vụ được nhiều request đang chờ cùng lúc.
-- **c=100:** RPS **giảm** còn 57.4 và p95 vọt lên 4.16 s. Tôi kiểm tra thêm: log JSON của agent ghi thời gian xử lý từng request *bên trong* app chỉ p50 = 200 ms, p95 = 247 ms ở c=100 (gần như c=1). Vậy ~4 s còn lại nằm **ngoài handler**: request phải xếp hàng trước khi một process uvicorn duy nhất (1 event loop) kịp accept/parse, cộng với load generator cũng là 1 process Python chạy cùng máy. Đã loại trừ 2 nguyên nhân: không có SYN bị drop (`netstat -s` "listen queue overflow" vẫn 0) và không phải do DNS (`127.0.0.1` thay `localhost` cho kết quả như nhau). Nút thắt ở mức này là **một process / một event loop**, nên muốn lên c=100 thì scale ngang (thêm worker/instance), không phải tối ưu code LLM.
+- **c=100:** RPS **giảm** còn 57.4 và p95 vọt lên 4.16 s. Tôi kiểm tra thêm: log JSON của agent ghi thời gian xử lý từng request *bên trong* app chỉ p50 = 200 ms, p95 = 247 ms ở c=100 (gần như c=1). Vậy ~4 s còn lại nằm **ngoài handler**: request phải xếp hàng trước khi một process uvicorn duy nhất (1 event loop) kịp accept/parse, cộng với load generator cũng là 1 process Python chạy cùng máy. Đã loại trừ 2 nguyên nhân: không có SYN bị drop (`netstat -s` "listen queue overflow" vẫn 0) và không phải do DNS (`127.0.0.1` thay `localhost` cho kết quả như nhau). Bằng chứng nằm trong `evidence/c100_server_vs_client.txt` và hai file `evidence/probe_c100*.json`. Nút thắt ở mức này là **một process / một event loop**, nên muốn lên c=100 thì scale ngang (thêm worker/instance), không phải tối ưu code LLM.
 - **c=10 FAIL dù c=50 PASS:** không phải vì tải. Với 3% request chậm (~1.7 s), p95 nằm sát biên của nhóm chậm: p95 = 529 ms (giữa ~220 ms của nhóm nhanh và ~1.7 s của nhóm chậm) cho thấy ở lần chạy c=10 tỉ lệ request chậm ngẫu nhiên chạm sát 5% nên p95 bị nội suy lên (report JSON không lưu từng request nên đây là suy luận từ phân bố, không phải số đếm). Đây chính là lý do SLO cần đủ mẫu và đo trong cửa sổ dài, không kết luận từ 1 lần chạy 300 request.
 
 ### 2.2 Tail latency (agent v2, `--requests 300 --concurrency 20`)
@@ -121,7 +121,7 @@ Locust chạy nền 30 user suốt thí nghiệm. Thời gian lấy từ `alert_
 
 Các quan sát khác:
 
-- **Alert chi phí đặt quá thấp cho tải thật.** Với model small, 30 user đã tốn ~$2.3–2.4/giờ, vượt ngưỡng $2/giờ, nên `LLMCostBurnRateHigh` **đã firing từ trước thí nghiệm C** (firing lúc 09:41:17 khi chạy 100 user). Alert bật cả khi hệ thống bình thường thì thành nhiễu và người ta sẽ tắt nó. Nên đặt ngưỡng theo budget thực tế, hoặc theo **cost / request**, hoặc so với baseline (vd > 3× trung bình 1 ngày), thay vì một con số tuyệt đối.
+- **Alert chi phí đặt quá thấp cho tải thật.** Với model small, 30 user đã tốn ~$2.3–2.4/giờ, vượt ngưỡng $2/giờ, nên `LLMCostBurnRateHigh` **đã firing từ trước thí nghiệm C**: điều kiện đúng (`activeAt`, bắt đầu pending) từ 09:41:17 khi chạy Locust 100 user, và lần poll đầu tiên lúc 09:49:04 đã thấy nó ở trạng thái firing (`alert_timeline.log`). Alert bật cả khi hệ thống bình thường thì thành nhiễu và người ta sẽ tắt nó. Nên đặt ngưỡng theo budget thực tế, hoặc theo **cost / request**, hoặc so với baseline (vd > 3× trung bình 1 ngày), thay vì một con số tuyệt đối.
 - **Vì sao `for` quan trọng:** mỗi lần tạo lại container, target cũ (IP cũ) bị scrape lỗi vài giây trước khi DNS SD (`refresh_interval: 10s`) xoá nó. `AgentInstanceDown` lên `pending` rồi tự về `inactive` sau 5 s, **không firing** nhờ `for: 30s`. Nếu `for: 0s` thì mỗi lần deploy là một lần báo động giả.
 - **Vì sao 504 không hiện trên metric agent (D):** request bị kẹt ở container đang pause. Nginx chờ hết `proxy_read_timeout 10s` rồi trả 504. Agent chưa bao giờ xử lý xong request đó nên không đếm. Metric chỉ phản ánh những gì *chính service đó* thấy, nên production cần thêm metric ở load balancer (status code của Nginx) hoặc synthetic check từ bên ngoài.
 - **Vì sao `pause` mà không `stop`:** container bị stop biến mất khỏi Docker DNS, Prometheus coi như target không tồn tại (không phải "down"). Pause thì vẫn còn trong DNS nhưng không trả lời, nên `up == 0`.
@@ -141,7 +141,7 @@ Trace chậm nhất có span LLM chậm (`screenshots/jaeger-slow-trace.png`):
 
 - `trace_id`: `b7c1cc8b52e44403cb67e29791585be4`
 - Tổng thời gian: **2281.5 ms** (`POST /ask`)
-- Span chiếm nhiều thời gian nhất: **`chat mock-llm-small` 2241.5 ms (98.2%)**; `agent.run` 2258.1 ms; `agent.retrieve_context` 16.3 ms (0.7%). Input 74 / output 37 token. Request chậm vì upstream LLM chậm (nhóm `MOCK_SLOW_RATE`), không phải code agent.
+- Span chiếm nhiều thời gian nhất: **`chat mock-llm-small` 2241.5 ms (98.2%)**; `agent.run` 2258.1 ms; `agent.retrieve_context` 16.3 ms (0.7%). Input 74 / output 37 token.
 - Dòng log tương ứng (`docker compose logs agent | grep b7c1cc8b…`):
 
 ```json
@@ -149,12 +149,16 @@ Trace chậm nhất có span LLM chậm (`screenshots/jaeger-slow-trace.png`):
 {"ts": "2026-11-25T09:42:56.181359+00:00", "level": "INFO", "service": "observable-agent", "instance": "7f4fe843982c", "event": "http_request", "trace_id": "b7c1cc8b52e44403cb67e29791585be4", "span_id": "c0ef4384660a2a6b", "request_id": "1b9409bb693f", "method": "POST", "route": "/ask", "status": 200, "ms": 2278.3}
 ```
 
-(`llm_ms: 193.6` trong log là latency "gốc" mock trả về. Span `chat` 2241 ms gồm cả phần cộng thêm của request chậm và thời gian chờ thật, nên đọc trace mới thấy đúng chỗ chậm.)
+**Đọc trace + log cùng nhau thì kết luận khác với chỉ nhìn trace:**
+
+- Trace nói span chậm nhất là `chat mock-llm-small`, tức "LLM chậm".
+- Nhưng log của **cùng request** ghi `llm_ms: 193.6`. Trong `app/main.py`, `llm_ms = result.latency_s`, là thời gian mock *yêu cầu* ngủ, **đã gồm** phần +1500 ms của nhóm `MOCK_SLOW_RATE`. Vậy request này **không** thuộc nhóm slow: mock chỉ xin ngủ 194 ms, còn `asyncio.sleep` được "đánh thức" muộn ~2 s. Một request slow-rate thật chỉ tới ~1.7–1.75 s (bảng 2.2), còn trace này là 2.28 s.
+- Trace thứ hai cùng instance `7f4fe843982c`, cách 2 s: `d6cacb36fc10ceee577ce6b9c89a7bcf` dài 2288.9 ms, nhưng `agent.run` chỉ 224 ms và middleware app log `"ms": 234.5`. Ở trace này ~2 s nằm **ngoài** code agent.
+- Hai trace rơi vào 09:42:53–56, ~20 s sau khi Locust 100 user bắt đầu ramp lúc chạy scale_3, trên container vừa được tạo, mỗi container giới hạn `cpus: 0.5`.
+- **Kết luận (giả thuyết, chưa kiểm chứng bằng metric CPU):** event loop của instance bị nghẽn khoảng 2 s (CPU throttle khi tải dồn lên container 0.5 CPU), nên coroutine nào đang `await` lúc đó cũng bị trễ. Trace chỉ ra *span nào* bị kéo dài, còn log `llm_ms` cho biết *upstream không chậm*.
+- Bài học: span `chat` dài **không** đồng nghĩa với LLM chậm. Cần thêm metric saturation (event-loop lag, CPU throttling của container) để phân biệt.
 
 Trace lỗi (`screenshots/jaeger-error-trace.png`): `dc81836bad2dd3ad91760e445aaac80c`, `POST /ask` 503, 127 ms. Span `chat mock-llm-small` có event `exception` (`utils.mock_llm.LLMError: Upstream LLM error: 503 Service Unavailable (mock)`, kèm stacktrace). Log `{"event": "llm_error", "trace_id": "dc81836b…", ...}` khớp trace_id (`benchmark-results/trace_log_lines.jsonl`).
-
-**Một trace "lạ" đáng ghi lại:** `d6cacb36fc10ceee577ce6b9c89a7bcf` dài 2288.9 ms nhưng `agent.run` chỉ 224 ms, và middleware của app log `"ms": 234.5`. Vậy ~2 s nằm **ngoài** code agent. Trace này rơi vào lúc chạy Locust 100 user với 3 container, mỗi container giới hạn `cpus: 0.5`. Giả thuyết (chưa kiểm chứng): event loop bị CPU throttle nên request chờ trước/sau handler. Đây là ví dụ cho thấy trace cũng chỉ ra được những gì *không* phải lỗi của LLM.
-
 ---
 
 ## 5. Benchmark scaling (production, Locust headless, 100 users, ramp 10/s, 2 phút)
@@ -187,7 +191,7 @@ Số của dòng `POST /ask` trong `*_stats.csv`:
   - **Online eval:** synthetic probe chạy golden set mỗi 15 phút vào production, alert khi accuracy < 85%.
   - Metric và alert ở **Nginx** (tỉ lệ 5xx/504 của LB) + **blackbox/synthetic check** từ ngoài, để bắt lỗi agent không thấy (thí nghiệm D).
   - Alert cost theo **cost / request** hoặc **% budget ngày** thay vì $/giờ tuyệt đối (đang báo động giả ở tải 30 user); thêm alert **burn rate error budget** (multi-window, 1h/6h) thay cho ngưỡng 5% cố định.
-  - **Saturation:** alert khi `agent_in_flight_requests` hoặc event-loop lag cao, kèm CPU throttling của container (dấu hiệu ở trace `d6cacb36…`).
+  - **Saturation:** alert khi `agent_in_flight_requests` hoặc event-loop lag cao, kèm CPU throttling của container (dấu hiệu ở trace `b7c1cc8b…` / `d6cacb36…`, mục 4.4).
 
 ---
 

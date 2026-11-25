@@ -1,0 +1,18 @@
+# Phân tích c=100 (Part 7 mục 2.1) — số liệu phía server lấy từ log JSON của agent v2 (event=http_request, route=/ask)
+# Thứ tự các block 300 request: c1, c10, c50, c100, probe100 (probe = chạy lại c=100 ra file riêng, không nộp làm report)
+c1        n=300 server-side p50=192ms p95=221ms max=1724ms
+c10       n=300 server-side p50=189ms p95=224ms max=1718ms
+c50       n=300 server-side p50=191ms p95=218ms max=1710ms
+c100      n=300 server-side p50=200ms p95=247ms max=1742ms
+probe100  n=300 server-side p50=203ms p95=244ms max=1731ms
+
+# netstat -s -p tcp trước / sau lần probe c=100 (listen queue overflow không đổi → không drop SYN)
+		0 received packet dropped due to low memory			0 received packet dropped due to low memory
+	0 listen queue overflow		0 listen queue overflow
+	0 embryonic connection dropped		0 embryonic connection dropped
+		0 connection dropped by rexmit timeout			0 connection dropped by rexmit timeout
+		0 connection dropped after retransmitting FIN			0 connection dropped after retransmitting FIN
+
+# client-side: probe localhost vs 127.0.0.1 (loại trừ DNS)
+probe_c100 http://localhost:8002 rps= 43.2 {'min': 189.6, 'avg': 1603.0, 'p50': 821.5, 'p90': 4115.6, 'p95': 4705.4, 'p99': 5161.3, 'max': 5954.9}
+probe_c100_ip http://127.0.0.1:8002 rps= 57.06 {'min': 201.3, 'avg': 1425.2, 'p50': 743.7, 'p90': 3556.6, 'p95': 4432.2, 'p99': 4900.9, 'max': 5031.7}

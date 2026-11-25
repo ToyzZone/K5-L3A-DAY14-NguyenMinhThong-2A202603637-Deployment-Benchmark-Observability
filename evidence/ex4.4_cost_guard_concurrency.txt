@@ -1,0 +1,3 @@
+check_budget        : 200 request song song × $0.30, chấp nhận 33 → tiêu $9.90 (budget $10)
+check_budget_naive  : 200 request song song × $0.30, chấp nhận 39 → tiêu $11.70 (budget $10)
+self-check OK

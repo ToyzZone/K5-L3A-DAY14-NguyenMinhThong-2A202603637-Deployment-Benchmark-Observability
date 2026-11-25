@@ -452,12 +452,12 @@ Toàn bộ bài lab này được thực hiện bằng **Claude Code (Claude Opu
 
 | Phần | AI đã làm gì | Kiểm tra thế nào |
 |---|---|---|
-| Setup | Fork repo về tài khoản cá nhân với đúng tên `K5-L3A-DAY14-NguyenMinhThong-2A202603637-...`, clone, tạo venv Python 3.11 | `gh repo view` cho thấy repo PUBLIC, đúng tên |
+| Setup | Fork repo về tài khoản cá nhân, đổi tên theo mẫu trong SUBMISSION.md, clone, tạo venv Python 3.11 | `gh repo view` cho thấy repo PUBLIC, đúng tên |
 | Part 6 code | Viết toàn bộ phần TODO trong `06-lab-complete/` (app/*.py, Dockerfile, compose, .dockerignore, .env.example, railway.toml, render.yaml) | `python check_production_ready.py` bản đầy đủ có Docker: **PASS 12/12** ngay lần chạy đầu; thêm test tay trên compose (422, 503 khi tắt Redis, log JSON) |
 | Part 1, 2, 4, 5 | Chạy các ví dụ có sẵn, chụp output thật, trả lời câu hỏi | Mọi output dán ở trên là output lệnh thật; số MB lấy từ `docker image inspect`; tự phát hiện 2 bug trong code mẫu (log JSON bị nuốt ở Part 1, `budget_remaining_usd` sai ở Part 4) |
 | Part 4.4 | Viết `cost_guard_redis.py` (bản atomic) và so với lời giải mẫu | Self-check `assert` + thí nghiệm 200 request song song trên Redis thật: atomic $9.90 vs mẫu $11.70 |
 | Part 7 | Thêm metric `agent_question_length_chars`; chạy load test, eval; sửa `KNOWLEDGE_BASE`; viết CI quality gate; sửa bug `PYTHONUSERBASE` của Dockerfile stack production; chạy Locust, 5 thí nghiệm chaos; chụp ảnh Grafana/Jaeger/Prometheus bằng Safari; viết `BENCHMARK_REPORT.md` | Mọi số trong report đọc lại từ file JSON/CSV/log đã commit bằng script (không gõ tay ước lượng); thời gian alert lấy từ poller ghi `alert_timeline.log`; eval cuối `--min-accuracy 1.0` → 23/23 PASS |
-| Deploy | Cài Railway CLI, deploy agent Part 6 + Redis, đặt biến môi trường trên platform | 4 lệnh tự kiểm ở CP6 (`/health` 200, `/ready` 200, `/ask` không key 401, có key 200) |
+| Deploy | **Đang chờ** (cần người làm bài đăng nhập Railway). Đã cài Railway CLI, viết sẵn `railway.toml` / `render.yaml` | Sẽ kiểm bằng 4 lệnh tự kiểm ở CP6 sau khi deploy |
 
 Những chỗ AI phải tự sửa trong quá trình làm:
 
